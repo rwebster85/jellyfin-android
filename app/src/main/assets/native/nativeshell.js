@@ -10,6 +10,11 @@ const features = [
     "htmlaudioautoplay",
     "htmlvideoautoplay",
     "multiserver",
+    // This app builds its own download URL from the item id, so it can only fetch the optimised
+    // rendition because downloadFiles honours the "optimised" flag. Older builds ignore that flag
+    // and would silently return the original, which is why the web client checks for this feature
+    // before offering the action.
+    "optimiseddownload",
     "physicalvolumecontrol",
     "remotecontrol",
     "subtitleappearancesettings",

@@ -33,6 +33,7 @@ class DownloadManager(
         server: ServerEntity,
         user: UserEntity,
         items: Collection<UUID>,
+        optimised: Boolean = false,
     ) = withContext(Dispatchers.IO) {
         for (itemsChunk in items.chunked(ITEMS_BATCH)) {
             val existingItems = downloadDao.getDownloadsByItemIds(itemsChunk)
@@ -56,8 +57,11 @@ class DownloadManager(
                 if (downloadEntity != null) {
                     // If the item already exists we just update the local information for it and requeue it
                     // this will force the download worker to recheck the local file in case it is missing or changed
+                    // Requesting an item again replaces which version is wanted, so that asking for
+                    // the optimised copy of something already downloaded plainly does what it says.
                     downloadEntity = downloadEntity.copy(
                         item = item,
+                        optimised = optimised,
                         status = DownloadStatus.QUEUED,
                         modifiedAt = System.currentTimeMillis(),
                     )
@@ -69,6 +73,7 @@ class DownloadManager(
                         userId = user.id,
                         itemId = item.id,
                         item = item,
+                        optimised = optimised,
                         path = item.name ?: item.id.toString(),
                     )
                     downloadDao.insert(downloadEntity)

@@ -41,6 +41,14 @@ data class DownloadEntity(
     @ColumnInfo(name = "path") val path: String,
     @ColumnInfo(name = "item") val item: BaseItemDto,
 
+    /**
+     * Whether the user asked for the server's optimised rendition rather than the item's own file.
+     *
+     * Stored rather than passed through, because downloads are queued and resumable: the URL is
+     * chosen when the file is prepared, which can be long after the request was made.
+     */
+    @ColumnInfo(name = "optimised", defaultValue = "0") val optimised: Boolean = false,
+
     @ColumnInfo(name = "status") val status: DownloadStatus = DownloadStatus.QUEUED,
 
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),

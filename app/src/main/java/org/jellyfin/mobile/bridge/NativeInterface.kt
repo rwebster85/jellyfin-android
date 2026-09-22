@@ -154,7 +154,14 @@ class NativeInterface(private val context: Context) : KoinComponent {
                 }
             }
 
-            emitEvent(ActivityEvent.DownloadItems(itemIds))
+            // The web client marks every file of one request the same way, because the flag comes
+            // from which menu entry was used rather than from the item, so the batch is read as a
+            // whole. An older web client sends no flag at all, which reads as a plain download.
+            val optimised = files.any { element ->
+                element.jsonObject["optimised"]?.jsonPrimitive?.booleanOrNull == true
+            }
+
+            emitEvent(ActivityEvent.DownloadItems(itemIds, optimised))
         } catch (e: Exception) {
             Timber.e("Download failed: %s", e.message)
             return false

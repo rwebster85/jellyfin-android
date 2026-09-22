@@ -13,7 +13,6 @@ import org.jellyfin.mobile.data.entity.DownloadFileEntity
 import org.jellyfin.mobile.data.entity.DownloadFiles
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.imageApi
-import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.model.api.ImageFormat
 import org.jellyfin.sdk.model.api.ImageType
 import java.io.IOException
@@ -156,7 +155,7 @@ class DownloadQueue(
             type = DownloadFileType.ITEM,
             fileName = downloadWithFiles.download.item.path?.replace(Regex("^.*[\\\\/]"), "") ?: error("Missing item path"),
         ),
-        remoteUri = api.libraryApi.getDownloadUrl(downloadWithFiles.download.item.id).toUri()
+        remoteUri = OptimisedDownloads.resolveMainFileUrl(api, _downloader, downloadWithFiles.download)
     )
 
     private suspend fun preparePrimaryImageFile(

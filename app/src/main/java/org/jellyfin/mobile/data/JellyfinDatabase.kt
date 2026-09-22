@@ -30,11 +30,13 @@ import java.util.UUID
         DownloadEntity::class,
         DownloadFileEntity::class,
     ],
-    version = 5,
+    version = 6,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4, spec = JellyfinDatabase.MigrateV4::class),
         AutoMigration(from = 4, to = 5, spec = JellyfinDatabase.MigrateV5::class),
+        // Adds download.optimised. It defaults to 0, so downloads made before this stay as they were.
+        AutoMigration(from = 5, to = 6),
     ],
 )
 @TypeConverters(JellyfinDatabase.Converters::class)
