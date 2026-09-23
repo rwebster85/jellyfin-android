@@ -27,31 +27,6 @@ class FileDownloader(
         }
     }
 
-    /**
-     * Checks whether [from] can be served, without transferring it.
-     *
-     * Used to confirm an optimised rendition exists before queueing it, because [download] reports
-     * every unsuccessful response as an [IOException], so callers cannot tell a permanent 404 from
-     * a transient network failure.
-     */
-    suspend fun exists(api: ApiClient, from: Uri): Boolean {
-        val authorizationHeader = AuthorizationHeaderBuilder.buildHeader(
-            clientName = api.clientInfo.name,
-            clientVersion = api.clientInfo.version,
-            deviceId = api.deviceInfo.id,
-            deviceName = api.deviceInfo.name,
-            accessToken = api.accessToken,
-        )
-
-        val request = Request.Builder()
-            .url(from.toString())
-            .head()
-            .header("Authorization", authorizationHeader)
-            .build()
-
-        return okHttpClient.newCall(request).await().use { response -> response.isSuccessful }
-    }
-
     private suspend fun download(
         api: ApiClient,
         from: Uri,

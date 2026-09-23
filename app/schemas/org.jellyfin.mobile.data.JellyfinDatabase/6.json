@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 6,
-    "identityHash": "1fc3ac5e7e022b8765b75d77dd5981bb",
+    "identityHash": "78391827d41f2c97f92a50785ed0a96e",
     "entities": [
       {
         "tableName": "server",
@@ -113,7 +113,7 @@
       },
       {
         "tableName": "download",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `server_id` INTEGER NOT NULL, `user_id` INTEGER NOT NULL, `item_id` TEXT NOT NULL, `path` TEXT NOT NULL, `item` TEXT NOT NULL, `optimised` INTEGER NOT NULL DEFAULT 0, `status` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `modified_at` INTEGER NOT NULL, FOREIGN KEY(`server_id`) REFERENCES `server`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`user_id`) REFERENCES `user`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `server_id` INTEGER NOT NULL, `user_id` INTEGER NOT NULL, `item_id` TEXT NOT NULL, `path` TEXT NOT NULL, `item` TEXT NOT NULL, `optimised` INTEGER NOT NULL DEFAULT 0, `media_source` TEXT, `status` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `modified_at` INTEGER NOT NULL, FOREIGN KEY(`server_id`) REFERENCES `server`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`user_id`) REFERENCES `user`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -157,6 +157,11 @@
             "affinity": "INTEGER",
             "notNull": true,
             "defaultValue": "0"
+          },
+          {
+            "fieldPath": "mediaSource",
+            "columnName": "media_source",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "status",
@@ -318,7 +323,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1fc3ac5e7e022b8765b75d77dd5981bb')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '78391827d41f2c97f92a50785ed0a96e')"
     ]
   }
 }

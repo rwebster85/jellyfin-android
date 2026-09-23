@@ -130,7 +130,7 @@ class QueueManager(
         val mediaSource = LocalJellyfinMediaSource(
             itemId = download.itemId,
             item = download.item,
-            sourceInfo = download.item.mediaSources!!.first(),
+            sourceInfo = download.playbackSource(),
             playSessionId = download.id.toString(),
             playbackDetails = PlaybackDetails(startTime, audioStreamIndex, subtitleStreamIndex),
             remoteFileUri = mainFile.uri,

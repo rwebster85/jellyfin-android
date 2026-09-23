@@ -19,6 +19,7 @@ import org.jellyfin.mobile.data.entity.DownloadFileEntity
 import org.jellyfin.mobile.data.entity.ServerEntity
 import org.jellyfin.mobile.data.entity.UserEntity
 import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.MediaSourceInfo
 import org.jellyfin.sdk.model.serializer.toUUIDOrNull
 import timber.log.Timber
 import java.util.UUID
@@ -35,7 +36,8 @@ import java.util.UUID
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4, spec = JellyfinDatabase.MigrateV4::class),
         AutoMigration(from = 4, to = 5, spec = JellyfinDatabase.MigrateV5::class),
-        // Adds download.optimised. It defaults to 0, so downloads made before this stay as they were.
+        // Adds download.optimised and download.media_source. They default to 0 and null, so downloads
+        // made before this stay as they were: plain, and described by their item.
         AutoMigration(from = 5, to = 6),
     ],
 )
@@ -59,6 +61,12 @@ abstract class JellyfinDatabase : RoomDatabase() {
 
         @TypeConverter
         fun toBaseItemDto(json: String?): BaseItemDto? = json?.let(Json::decodeFromString)
+
+        @TypeConverter
+        fun fromMediaSourceInfo(mediaSource: MediaSourceInfo?): String? = mediaSource?.let(Json::encodeToString)
+
+        @TypeConverter
+        fun toMediaSourceInfo(json: String?): MediaSourceInfo? = json?.let(Json::decodeFromString)
 
         @TypeConverter
         fun fromUri(uri: Uri?): String? = uri?.toString()

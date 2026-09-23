@@ -51,13 +51,24 @@ class DownloadQueue(
         }
     }
 
-    private suspend fun process(downloadWithFiles: DownloadFiles) {
+    private suspend fun process(queuedDownload: DownloadFiles) {
+        var downloadWithFiles = queuedDownload
+
         // Mark as downloading
         downloadDao.update(downloadWithFiles.download.copy(status = DownloadStatus.DOWNLOADING))
         val api = apiClientController.getApiClient(downloadWithFiles.download.serverId, downloadWithFiles.download.userId)
 
         try {
-            val queuedFiles = prepareFiles(api, downloadWithFiles)
+            // Resolved before anything is named, since the file the server will serve decides what it
+            // is saved as. Every status update below writes this copy back, so it has to carry the
+            // new description or the next update would put the old one back.
+            val mainFile = OptimisedDownloads.resolveMainFile(api, downloadWithFiles.download)
+            downloadWithFiles = downloadWithFiles.copy(
+                download = downloadWithFiles.download.copy(mediaSource = mainFile.mediaSource),
+            )
+            downloadDao.update(downloadWithFiles.download.copy(status = DownloadStatus.DOWNLOADING))
+
+            val queuedFiles = prepareFiles(api, downloadWithFiles, mainFile.url)
 
             val notificationProgressCallback = downloadNotificationManager.downloadFile(
                 downloadWithFiles.download.id,
@@ -128,7 +139,7 @@ class DownloadQueue(
         }
     }
 
-    private suspend fun prepareFiles(api: ApiClient, downloadWithFiles: DownloadFiles): List<QueuedFile> {
+    private suspend fun prepareFiles(api: ApiClient, downloadWithFiles: DownloadFiles, mainFileUrl: Uri): List<QueuedFile> {
         val storageLocation = storageManager.getStorageLocation()
         val itemLocation = storageLocation?.findFile(downloadWithFiles.download.path)
             ?: storageLocation?.createDirectory(downloadWithFiles.download.path)
@@ -139,23 +150,23 @@ class DownloadQueue(
             preparePrimaryImageFile(api, downloadWithFiles, itemLocation)?.let(::add)
 
             // Add main item second as it is (often) the largest and important file
-            prepareMainFile(api, downloadWithFiles, itemLocation).let(::add)
+            prepareMainFile(downloadWithFiles, itemLocation, mainFileUrl).let(::add)
         }
     }
 
     private suspend fun prepareMainFile(
-        api: ApiClient,
         downloadWithFiles: DownloadFiles,
         itemLocation: DocumentFile,
+        mainFileUrl: Uri,
     ) = QueuedFile(
         file = createOrUpdateFile(
             filter = { it.type == DownloadFileType.ITEM },
             downloadWithFiles = downloadWithFiles,
             itemLocation = itemLocation,
             type = DownloadFileType.ITEM,
-            fileName = downloadWithFiles.download.item.path?.replace(Regex("^.*[\\\\/]"), "") ?: error("Missing item path"),
+            fileName = downloadWithFiles.download.mainFileName() ?: error("Missing item path"),
         ),
-        remoteUri = OptimisedDownloads.resolveMainFileUrl(api, _downloader, downloadWithFiles.download)
+        remoteUri = mainFileUrl,
     )
 
     private suspend fun preparePrimaryImageFile(
@@ -194,6 +205,13 @@ class DownloadQueue(
             ?: error("Unable to create file $fileName")
 
         if (downloadFile != null) {
+            // A different name means a different file: another version of the item than the one
+            // downloaded before, such as the optimised copy of something first downloaded plainly.
+            // The old one would otherwise be left behind unreferenced, at its full size.
+            if (downloadFile.fileName != fileName) {
+                itemLocation.findFile(downloadFile.fileName)?.delete()
+            }
+
             downloadFile = downloadFile.copy(
                 type = type,
                 size = 0L,
