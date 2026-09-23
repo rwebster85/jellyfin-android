@@ -43,22 +43,17 @@ data class DownloadEntity(
     @ColumnInfo(name = "item") val item: BaseItemDto,
 
     /**
-     * Whether the user asked for the server's optimised rendition rather than the item's own file.
-     *
-     * Stored rather than passed through, because downloads are queued and resumable: the URL is
-     * chosen when the file is prepared, which can be long after the request was made.
+     * Whether the user asked for the optimised copy. Stored because downloads are queued: the
+     * URL is chosen when the download is processed, which can be long after the request.
      */
     @ColumnInfo(name = "optimised", defaultValue = "0") val optimised: Boolean = false,
 
     /**
-     * What the server said it would actually serve, when that is a different file from the one
-     * [item] describes - an optimised rendition, with its own container, name and tracks. Null when
-     * the item's own file was downloaded, which [item] already describes.
+     * The server's description of the file it served, when that is not the item's own - an optimised copy,
+     * with its own name, container and tracks. Null when [item] already describes the file.
      *
-     * Kept apart from [item] rather than written into it, so that [item] stays the server's own
-     * description of the library item: a later download of this item may be served the original,
-     * and that has to be described by the original's source, not by a rendition's left behind.
-     * Set each time the download is processed, since that is when the file is chosen.
+     * Kept apart from [item], so a later download served the original can still be described by it.
+     * Set each time the download is processed.
      */
     @ColumnInfo(name = "media_source") val mediaSource: MediaSourceInfo? = null,
 
@@ -68,15 +63,14 @@ data class DownloadEntity(
     @ColumnInfo(name = "modified_at") var modifiedAt: Long = System.currentTimeMillis(),
 ) {
     /**
-     * The source describing the file that was downloaded, which is what offline playback has to
-     * select tracks from: stream indices that belong to another file map to the wrong track.
+     * The source describing the downloaded file, for offline track selection - another file's stream
+     * indices would pick the wrong track.
      */
     fun playbackSource(): MediaSourceInfo = mediaSource ?: item.mediaSources!!.first()
 
     /**
-     * The name the main file is saved under, taken from the file actually served. A rendition gets
-     * its own name, and so its own extension, rather than the original's - which also means a
-     * different version of an item never resumes into a partial file of another.
+     * The name the main file is saved under: the served file's, so an optimised copy keeps its extension
+     * and never resumes into a partial file of another version.
      */
     fun mainFileName(): String? = (mediaSource?.path ?: item.path)?.replace(Regex("^.*[\\\\/]"), "")
 

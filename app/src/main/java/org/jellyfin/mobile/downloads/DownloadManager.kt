@@ -57,8 +57,7 @@ class DownloadManager(
                 if (downloadEntity != null) {
                     // If the item already exists we just update the local information for it and requeue it
                     // this will force the download worker to recheck the local file in case it is missing or changed
-                    // Requesting an item again replaces which version is wanted, so that asking for
-                    // the optimised copy of something already downloaded plainly does what it says.
+                    // A new request replaces which version is wanted.
                     downloadEntity = downloadEntity.copy(
                         item = item,
                         optimised = optimised,

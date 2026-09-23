@@ -15,34 +15,18 @@ import java.io.IOException
 import java.util.UUID
 
 /**
- * Everything specific to downloading the server's optimised rendition of an item rather than the
- * item's own file, kept together so that the behaviour can be found and changed in one place.
+ * Everything specific to optimised downloads, kept in one place.
  */
 object OptimisedDownloads {
     /**
-     * What the app does when the user asked for an optimised download but the server has no
-     * rendition for that item, so `Items/{id}/Download/Optimised` answers 404.
-     *
-     * This is a policy decision rather than a technical one, and it is deliberately expressed in
-     * exactly one place. Change [MISSING_RENDITION] to switch behaviour; nothing else needs
-     * touching.
+     * What to do when an optimised download has no optimised copy on the server. A policy choice, made in
+     * one place: change [MISSING_RENDITION] to switch.
      */
     enum class MissingRendition {
         /**
-         * Fail the download and surface the error. The user asked for the optimised file
-         * specifically, so quietly handing them something else - potentially a very large original,
-         * over mobile data - is worse than telling them it is not available.
-         *
-         * This matches the server, which deliberately splits the two endpoints:
-         * `Items/{id}/Download` falls through to the original, `Items/{id}/Download/Optimised` does
-         * not.
-         *
-         * The web client substitutes the original only after asking, which is the better answer
-         * where a dialog is possible. It is not possible here: this runs in a background worker,
-         * long after the request, so the choice is between failing and substituting silently.
-         * The web client also asks before it ever reaches this code, so in practice a download
-         * arriving here with no rendition means one disappeared in between - which is a genuine
-         * error rather than a routine miss.
+         * Fail the download. Silently fetching a possibly huge original, perhaps over mobile data,
+         * is worse - and this runs in a background worker, so there is no one to ask. The web client
+         * has already checked, so a copy missing here disappeared in between.
          */
         FAIL,
 
@@ -53,14 +37,12 @@ object OptimisedDownloads {
     }
 
     /**
-     * The behaviour described by [MissingRendition]. Chosen 2026-09-22; see the values above for the
-     * reasoning, and change this line to reverse it.
+     * The behaviour described by [MissingRendition]. Change this line to reverse it.
      */
     val MISSING_RENDITION = MissingRendition.FAIL
 
     /**
-     * The server routes added by the downloads-location feature. They are not part of the generated
-     * SDK, so they are requested by path.
+     * The optimised download routes. Not in the generated SDK, so requested by path.
      */
     private const val OPTIMISED_DOWNLOAD_PATH = "/Items/{itemId}/Download/Optimised"
     private const val OPTIMISED_MEDIA_INFO_PATH = "/Items/{itemId}/Download/Optimised/MediaInfo"
@@ -83,9 +65,8 @@ object OptimisedDownloads {
         data object None : Rendition
 
         /**
-         * There is one. [mediaSource] is null only when its description could not be read, in which
-         * case the file is still downloaded - the right bytes with the item's description is where
-         * this stood before the description existed, and failing the download would be worse.
+         * There is one. [mediaSource] is null only when its description could not be read; the file
+         * is still downloaded, described by the item.
          */
         data class Found(val mediaSource: MediaSourceInfo?) : Rendition
 
@@ -94,31 +75,26 @@ object OptimisedDownloads {
     }
 
     /**
-     * Builds the URL of an item's optimised rendition.
+     * Builds the URL of an item's optimised copy.
      */
     fun optimisedDownloadUrl(api: ApiClient, itemId: UUID): Uri =
         api.createUrl(OPTIMISED_DOWNLOAD_PATH, mapOf("itemId" to itemId)).toUri()
 
     /**
-     * Decides which URL the main file of [download] is fetched from, and what that file is.
+     * Decides which URL the main file of [download] is fetched from, and asks the server to describe
+     * that file - under substitution even a plain download can be an optimised copy with other tracks.
      *
-     * Both routes are asked to describe what they would serve before any bytes move. That is what
-     * lets the download be stored with the description of the file it actually got - under
-     * substitution even a plain download can be a rendition, with its own name, container and
-     * tracks, and an offline player selecting tracks from the original's list picks the wrong one.
-     * It also confirms an optimised rendition exists, so a missing one is dealt with here rather
-     * than surfacing later as a failed transfer.
-     *
-     * Throws [IllegalStateException] when there is no rendition and the policy is
-     * [MissingRendition.FAIL]. That matters: [DownloadQueue] treats an `IOException` as transient
-     * and requeues it, which would retry a permanent 404 forever, whereas any other exception marks
-     * the download as errored and stops. A failure to reach the server is an `IOException` for the
-     * same reason, the other way round.
+     * Throws [IllegalStateException] for a missing copy under [MissingRendition.FAIL], because
+     * [DownloadQueue] retries an `IOException` forever but marks anything else as errored. Failing
+     * to reach the server is an `IOException`, so it is retried.
      */
     suspend fun resolveMainFile(api: ApiClient, download: DownloadEntity): MainFile {
-        val originalUrl = api.libraryApi.getDownloadUrl(download.itemId).toUri()
+        suspend fun plainFile() = MainFile(
+            api.libraryApi.getDownloadUrl(download.itemId).toUri(),
+            describe(api, DOWNLOAD_MEDIA_INFO_PATH, download.itemId),
+        )
 
-        if (!download.optimised) return MainFile(originalUrl, describe(api, DOWNLOAD_MEDIA_INFO_PATH, download.itemId))
+        if (!download.optimised) return plainFile()
 
         when (val rendition = findRendition(api, OPTIMISED_MEDIA_INFO_PATH, download.itemId)) {
             is Rendition.Found -> return MainFile(optimisedDownloadUrl(api, download.itemId), rendition.mediaSource)
@@ -131,17 +107,13 @@ object OptimisedDownloads {
 
         return when (MISSING_RENDITION) {
             MissingRendition.FAIL -> error("No optimised version available for item ${download.itemId}")
-            MissingRendition.FALL_BACK -> MainFile(originalUrl, describe(api, DOWNLOAD_MEDIA_INFO_PATH, download.itemId))
+            MissingRendition.FALL_BACK -> plainFile()
         }
     }
 
     /**
      * Describes what the plain route would serve in place of the item's own file, or null when it
-     * would serve the item's own.
-     *
-     * A server that cannot answer - one without the downloads feature, which has no such route and
-     * says 404 - is taken as serving the item's own file, which is what such a server does. Nothing
-     * here may stop a plain download that would otherwise succeed.
+     * would serve the item's own. Never stops a plain download: any error reads as the item's own.
      */
     private suspend fun describe(api: ApiClient, path: String, itemId: UUID): MediaSourceInfo? =
         when (val rendition = findRendition(api, path, itemId)) {
@@ -157,7 +129,7 @@ object OptimisedDownloads {
         val response = try {
             api.request(HttpMethod.GET, path, mapOf("itemId" to itemId))
         } catch (e: InvalidStatusException) {
-            // 404 is an answer rather than a failure: no rendition, or a server that predates the route.
+            // 404 is an answer rather than a failure: no optimised copy, or a server without this route.
             return if (e.status == HTTP_NOT_FOUND) Rendition.None else Rendition.Unanswered(e.status)
         } catch (e: ApiClientException) {
             // Not reaching the server at all is transient, and the transfer would fail the same way.

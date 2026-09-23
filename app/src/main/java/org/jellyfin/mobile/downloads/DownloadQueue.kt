@@ -59,9 +59,8 @@ class DownloadQueue(
         val api = apiClientController.getApiClient(downloadWithFiles.download.serverId, downloadWithFiles.download.userId)
 
         try {
-            // Resolved before anything is named, since the file the server will serve decides what it
-            // is saved as. Every status update below writes this copy back, so it has to carry the
-            // new description or the next update would put the old one back.
+            // Resolved before naming, since the served file decides the name. The status updates below
+            // write this copy back, so it must carry the new description.
             val mainFile = OptimisedDownloads.resolveMainFile(api, downloadWithFiles.download)
             downloadWithFiles = downloadWithFiles.copy(
                 download = downloadWithFiles.download.copy(mediaSource = mainFile.mediaSource),
@@ -139,7 +138,11 @@ class DownloadQueue(
         }
     }
 
-    private suspend fun prepareFiles(api: ApiClient, downloadWithFiles: DownloadFiles, mainFileUrl: Uri): List<QueuedFile> {
+    private suspend fun prepareFiles(
+        api: ApiClient,
+        downloadWithFiles: DownloadFiles,
+        mainFileUrl: Uri,
+    ): List<QueuedFile> {
         val storageLocation = storageManager.getStorageLocation()
         val itemLocation = storageLocation?.findFile(downloadWithFiles.download.path)
             ?: storageLocation?.createDirectory(downloadWithFiles.download.path)
@@ -205,9 +208,8 @@ class DownloadQueue(
             ?: error("Unable to create file $fileName")
 
         if (downloadFile != null) {
-            // A different name means a different file: another version of the item than the one
-            // downloaded before, such as the optimised copy of something first downloaded plainly.
-            // The old one would otherwise be left behind unreferenced, at its full size.
+            // A new name means another version of the item: delete the old file rather than leave it
+            // behind at full size.
             if (downloadFile.fileName != fileName) {
                 itemLocation.findFile(downloadFile.fileName)?.delete()
             }

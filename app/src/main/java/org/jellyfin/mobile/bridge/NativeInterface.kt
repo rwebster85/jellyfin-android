@@ -154,9 +154,8 @@ class NativeInterface(private val context: Context) : KoinComponent {
                 }
             }
 
-            // The web client marks every file of one request the same way, because the flag comes
-            // from which menu entry was used rather than from the item, so the batch is read as a
-            // whole. An older web client sends no flag at all, which reads as a plain download.
+            // The flag comes from the menu entry used, so it is the same for the whole batch. No flag
+            // means a plain download.
             val optimised = files.any { element ->
                 element.jsonObject["optimised"]?.jsonPrimitive?.booleanOrNull == true
             }
