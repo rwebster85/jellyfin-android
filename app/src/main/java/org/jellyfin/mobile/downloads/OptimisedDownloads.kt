@@ -151,3 +151,15 @@ object OptimisedDownloads {
     private const val HTTP_NO_CONTENT = 204
     private const val HTTP_NOT_FOUND = 404
 }
+
+/**
+ * The source describing the downloaded file, for offline track selection - another file's stream
+ * indices would pick the wrong track.
+ */
+fun DownloadEntity.playbackSource(): MediaSourceInfo = mediaSource ?: item.mediaSources!!.first()
+
+/**
+ * The name the main file is saved under: the served file's, so an optimised copy keeps its extension
+ * and never resumes into a partial file of another version.
+ */
+fun DownloadEntity.mainFileName(): String? = (mediaSource?.path ?: item.path)?.replace(Regex("^.*[\\\\/]"), "")

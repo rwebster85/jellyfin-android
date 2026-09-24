@@ -62,18 +62,6 @@ data class DownloadEntity(
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "modified_at") var modifiedAt: Long = System.currentTimeMillis(),
 ) {
-    /**
-     * The source describing the downloaded file, for offline track selection - another file's stream
-     * indices would pick the wrong track.
-     */
-    fun playbackSource(): MediaSourceInfo = mediaSource ?: item.mediaSources!!.first()
-
-    /**
-     * The name the main file is saved under: the served file's, so an optimised copy keeps its extension
-     * and never resumes into a partial file of another version.
-     */
-    fun mainFileName(): String? = (mediaSource?.path ?: item.path)?.replace(Regex("^.*[\\\\/]"), "")
-
     fun getDisplayName(context: Context) = buildString {
         val name = if (
             item.type in arrayOf(BaseItemKind.PROGRAM, BaseItemKind.RECORDING) &&
